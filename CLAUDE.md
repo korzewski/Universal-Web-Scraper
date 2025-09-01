@@ -15,10 +15,20 @@ universal-web-scraper/
 │   ├── input-schema.json         # Column definitions + configuration (user-editable)
 │   ├── output-scraped-data.csv   # Generated results
 │   └── output-invalid-data.csv   # Generated errors (if any)
-└── src/lib/
-    ├── scraper.js                # Main scraping logic with Playwright
-    ├── csvHandler.js             # CSV file operations
-    └── validator.js              # Schema and data validation
+├── src/
+│   ├── lib/
+│   │   ├── scraper.js            # Playwright browser automation
+│   │   ├── csvHandler.js         # CSV file operations
+│   │   └── validator.js          # Schema and data validation
+│   └── transforms/               # Data transformation functions
+│       ├── trim.js               # Remove whitespace
+│       ├── lowercase.js          # Convert to lowercase
+│       ├── uppercase.js          # Convert to uppercase
+│       ├── number.js             # Extract numbers from text
+│       ├── slugFromUrl.js        # Extract URL path as slug
+│       ├── cleanHTML.js          # Clean HTML content
+│       └── removeSuffix.js       # Remove text suffixes
+└── index.js                      # Main entry point
 ```
 
 ## Key Architecture Points
@@ -35,17 +45,20 @@ universal-web-scraper/
 - This makes it immediately clear which files are user-editable vs generated
 
 ### Schema Structure
-The `input-schema.json` has four main sections:
+The `input-schema.json` has five main sections:
 1. `config.scraper` - timing, retries, user agent
 2. `config.browser` - headless mode, viewport, blocked resources
 3. `config.output` - filename, timestamp, backup settings
-4. `columns` - data extraction definitions with CSS selectors
+4. `pageSettings` - page loading behavior and options
+5. `columns` - data extraction definitions with CSS selectors and transforms
 
 ### Universal Design
 - No hardcoded selectors or website-specific logic
 - All data extraction is driven by the JSON schema
 - Multiple fallback selectors supported for robustness
+- Modular transform system for data processing
 - Generic examples use example.com domains
+- Extensible architecture allows custom transforms
 
 ## Common Development Tasks
 
@@ -76,9 +89,76 @@ node index.js test-selectors https://example.com
 - The project is designed to be product-agnostic and publicly shareable
 - Error handling includes retry logic and detailed logging
 
+## Transform System
+
+The project uses a modular transform system located in `src/transforms/`. Each transform is a separate ES module that exports a default function.
+
+### Transform Function Pattern
+```javascript
+/**
+ * Brief description of what this transform does
+ * 
+ * Usage: "transformName(param1,param2)"
+ * Input: "example input" → Output: "expected output"
+ */
+export default function transformName(value, param1, param2) {
+  if (typeof value !== 'string') return value;
+  
+  // Transform logic here
+  return transformedValue;
+}
+```
+
+### Available Transforms
+- `trim` - Remove whitespace
+- `lowercase/uppercase` - Case conversion
+- `number` - Extract numeric values
+- `slugFromUrl` - Extract URL paths
+- `cleanHTML(tags;skipSelectors)` - Clean HTML content
+- `removeSuffix(suffix)` - Remove text suffixes
+
+### Transform Usage
+In schema: `"transform": "trim,lowercase"` or `"transform": "removeSuffix( home delivery)"`
+
+## Claude Code Best Practices
+
+### File Operations
+- Always use absolute paths with Read/Write/Edit tools
+- Use Glob for file discovery, then Read for content
+- Prefer Edit over Write for existing files
+- Use MultiEdit for multiple changes to same file
+
+### Code Analysis
+- Use Grep extensively for code search and understanding
+- Search for patterns, not just exact strings
+- Use context flags (-C) to understand surrounding code
+- Check multiple files to understand architecture
+
+### Development Workflow
+1. **Understand First** - Use Grep/Read to analyze existing code patterns
+2. **Plan** - Use TodoWrite for complex tasks
+3. **Implement** - Follow existing patterns and conventions
+4. **Test** - Use project's test commands when available
+
+### Transform Development
+- Always handle non-string inputs gracefully: `if (typeof value !== 'string') return value;`
+- Include comprehensive JSDoc with usage examples
+- Make functions pure (no side effects)
+- Test edge cases and invalid inputs
+- Follow existing naming conventions
+
+### Schema Modifications
+- Maintain backward compatibility
+- Test changes with `node index.js test-schema`
+- Validate with real URLs using `test-selectors`
+- Consider fallback selectors for robustness
+
 ## Development Guidelines
 
 - Keep non-technical user experience simple - they should only need to edit `data/` folder
 - Maintain backward compatibility when changing schema structure
 - Test with various selector combinations to ensure robustness
 - Follow existing patterns for error handling and logging
+- All transform functions should handle non-string inputs gracefully
+- Use descriptive function names and include usage examples in comments
+- Transforms should be pure functions without side effects

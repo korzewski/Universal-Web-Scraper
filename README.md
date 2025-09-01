@@ -1,17 +1,18 @@
 # Universal Web Scraper
 
-Universal web scraper in Node.js for extracting data from websites to CSV files. Configurable schemas make it adaptable to any website structure.
+A configurable Node.js tool for extracting data from websites and exporting to CSV format. Designed to be universal and adaptable to any website structure through JSON schema configuration.
 
 ## Features
 
 - ✅ Universal scraping with configurable JSON schemas
-- ✅ All configuration in one file for non-technical users
-- ✅ CSS selector support and various HTML attributes
-- ✅ Retry logic and error handling
-- ✅ Input/output data validation
-- ✅ Automatic file naming with input/output prefixes
-- ✅ Testing tools for debugging
-- ✅ Extensible for API integrations
+- ✅ All configuration consolidated in one file
+- ✅ CSS selector support with fallback options
+- ✅ Advanced data transformation system
+- ✅ Retry logic and comprehensive error handling
+- ✅ Input/output data validation with detailed reporting
+- ✅ Automatic file naming with timestamps
+- ✅ Built-in testing tools for debugging
+- ✅ Playwright browser automation with resource blocking
 
 ## Installation
 
@@ -34,13 +35,24 @@ cp .env.example .env
 
 ```
 universal-web-scraper/
-├── data/                          # All data in one place
-│   ├── input-urls.csv            # URLs to scrape
-│   ├── input-schema.json         # Column definitions + all configuration
+├── data/                          # All user data in one place
+│   ├── input-urls.csv            # URLs to scrape (user-editable)
+│   ├── input-schema.json         # Schema + configuration (user-editable)
 │   ├── output-scraped-data.csv   # Generated results
-│   └── output-invalid-data.csv   # Generated errors (if any)
-├── src/lib/                      # Source code (don't edit)
-└── index.js                      # Entry point
+│   └── output-invalid-data.csv   # Failed records (if any)
+├── src/
+│   ├── lib/                      # Core scraping logic
+│   │   ├── scraper.js            # Playwright browser automation
+│   │   ├── csvHandler.js         # CSV file operations
+│   │   └── validator.js          # Schema and data validation
+│   └── transforms/               # Data transformation functions
+│       ├── trim.js               # Remove whitespace
+│       ├── lowercase.js          # Convert to lowercase
+│       ├── number.js             # Extract numbers
+│       ├── cleanHTML.js          # Clean HTML content
+│       ├── slugFromUrl.js        # Extract URL slugs
+│       └── removeSuffix.js       # Remove text suffixes
+└── index.js                      # Main entry point
 ```
 
 ## Usage for Non-Technical Users
@@ -52,9 +64,9 @@ universal-web-scraper/
 Edit `data/input-urls.csv`:
 ```csv
 url
-https://example.com/products/laptop
-https://example.com/products/smartphone
-https://example.com/blog/article-1
+https://example.com/page-1
+https://example.com/page-2
+https://example.com/page-3
 ```
 
 ### 2. Configure Schema and All Settings
@@ -63,27 +75,43 @@ Edit `data/input-schema.json` - **this is the only configuration file**:
 ```json
 {
   "version": "1.0",
-  "description": "Project description",
+  "description": "Universal web scraper configuration",
   "config": {
     "scraper": {
       "delay": 1000,
       "timeout": 30000,
-      "maxRetries": 3
+      "maxRetries": 3,
+      "retryDelay": 2000
     },
     "browser": {
       "headless": true,
-      "viewport": { "width": 1920, "height": 1080 }
+      "viewport": { "width": 1920, "height": 1080 },
+      "blockResources": ["image", "font", "media"]
     },
     "output": {
       "filename": "scraped-data",
-      "includeTimestamp": true
+      "includeTimestamp": true,
+      "createBackup": true,
+      "includeInvalidInOutput": false
     }
+  },
+  "pageSettings": {
+    "waitForSelector": "h1",
+    "waitTimeout": 10000,
+    "screenshot": false,
+    "removeScripts": true
   },
   "columns": [
     {
       "name": "title",
-      "selector": "h1, .page-title",
+      "selector": "h1, .page-title, .main-title",
       "attribute": "text",
+      "required": true
+    },
+    {
+      "name": "url",
+      "selector": null,
+      "attribute": "url",
       "required": true
     }
   ]
@@ -105,9 +133,9 @@ npm start
 npm start
 
 # Test configuration
-node index.js test-schema
-node index.js test-urls
-node index.js test-selectors https://example.com
+node index.js test-schema          # Validate schema file
+node index.js test-urls            # Validate URLs file
+node index.js test-selectors <url> # Test selectors on specific URL
 
 # Help
 node index.js help
@@ -187,12 +215,28 @@ This makes your scraper work across different website structures with one config
 - `url` - Source page URL
 - `alt`, `title`, `value` - Other HTML attributes
 
-### Transformations
+### Available Transformations
 
-- `trim` - Remove whitespace
-- `lowercase` - Convert to lowercase  
+#### Text Transformations
+- `trim` - Remove whitespace from start/end
+- `lowercase` - Convert to lowercase
 - `uppercase` - Convert to uppercase
-- `number` - Convert to number
+- `removeSuffix(text)` - Remove specific suffix from end of string
+
+#### Data Extraction
+- `number` - Extract numeric value from text (e.g., "$29.99" → 29.99)
+- `slugFromUrl` - Extract URL path as slug (e.g., "/blog/post" → "blog/post")
+
+#### HTML Processing
+- `cleanHTML(tags)` - Extract specific HTML tags and clean content
+- `cleanHTML(h1,p)` - Extract only h1 and p tags
+- `cleanHTML(h1,p;.skip,.ads)` - Extract h1,p but skip elements matching .skip,.ads
+
+#### Chaining Transformations
+You can chain multiple transformations with commas:
+```json
+"transform": "removeSuffix( home delivery),trim,lowercase"
+```
 
 ### "pageSettings" Section - Page Loading Settings
 
@@ -207,40 +251,41 @@ This makes your scraper work across different website structures with one config
 }
 ```
 
-## Examples
+## Schema Examples
 
-### Scraping Basic Product Data
+### Basic Data Extraction
 
 ```json
 {
   "columns": [
     {
-      "name": "product_name",
-      "selector": "h1.product-title",
+      "name": "title",
+      "selector": "h1, .main-title, .page-title",
       "attribute": "text",
       "required": true
     },
     {
       "name": "price", 
-      "selector": ".price, .cost",
+      "selector": ".price, .cost, .amount",
+      "attribute": "text",
+      "transform": "number"
+    },
+    {
+      "name": "description",
+      "selector": ".description, .content p",
       "attribute": "text",
       "transform": "trim"
     },
     {
-      "name": "description",
-      "selector": ".product-description p",
-      "attribute": "html"
-    },
-    {
       "name": "image_url",
-      "selector": ".product-image img",
+      "selector": ".main-image img, .hero-image img",
       "attribute": "src"
     }
   ]
 }
 ```
 
-### Scraping SEO Metadata
+### SEO and Metadata Extraction
 
 ```json
 {
@@ -256,38 +301,42 @@ This makes your scraper work across different website structures with one config
       "attribute": "content"
     },
     {
-      "name": "og_image",
-      "selector": "meta[property='og:image']",
-      "attribute": "content"
+      "name": "canonical_url",
+      "selector": "link[rel='canonical']",
+      "attribute": "href"
+    },
+    {
+      "name": "page_slug",
+      "selector": null,
+      "attribute": "url",
+      "transform": "slugFromUrl"
     }
   ]
 }
 ```
 
-### Scraping Article Content
+### Content with Transformations
 
 ```json
 {
   "columns": [
     {
-      "name": "article_title",
-      "selector": "h1, .article-title",
-      "attribute": "text"
+      "name": "clean_title",
+      "selector": "h1, .title",
+      "attribute": "text",
+      "transform": "removeSuffix( - Company Name),trim"
     },
     {
-      "name": "author",
-      "selector": ".author, .byline",
-      "attribute": "text"
+      "name": "clean_content",
+      "selector": ".main-content, .article-body",
+      "attribute": "html",
+      "transform": "cleanHTML(h2,h3,p;.ads,.sidebar)"
     },
     {
-      "name": "publish_date",
-      "selector": ".date, time",
-      "attribute": "text"
-    },
-    {
-      "name": "content",
-      "selector": ".content, .article-body",
-      "attribute": "html"
+      "name": "normalized_text",
+      "selector": ".category, .tag",
+      "attribute": "text",
+      "transform": "trim,lowercase"
     }
   ]
 }
@@ -301,16 +350,22 @@ Scraper generates in the `data/` folder:
 2. **Errors** - `output-scraped-data_invalid_TIMESTAMP.csv` (if any occur)
 3. **Screenshots** - `data/screenshots/` (if enabled)
 
-## Environment Configuration (.env) - For Developers Only
+## Environment Configuration (.env) - Optional
 
 ```bash
-# API Keys (future integrations)
+# File paths (override defaults)
+URLS_PATH=./data/input-urls.csv
+SCHEMA_PATH=./data/input-schema.json
+DATA_DIR=./data
+
+# Debug options
+DEBUG=false
+VERBOSE_LOGGING=false
+
+# API Keys (for future integrations)
 API_KEY=your_api_key
 SITE_ID=your_site_id
 COLLECTION_ID=your_collection_id
-
-# Debug
-DEBUG=false
 ```
 
 ## Troubleshooting
@@ -318,7 +373,7 @@ DEBUG=false
 ### Not Finding Elements
 1. Use `node index.js test-selectors <url>` to check selectors
 2. Verify CSS selector is correct
-3. Add alternative selectors: `"h1, .title, .product-name"`
+3. Add alternative selectors: `"h1, .title, .main-heading"`
 
 ### Slow Performance
 1. Increase `blockResources` in configuration
@@ -337,17 +392,40 @@ npx playwright install --force
 DEBUG=true node index.js
 ```
 
-## For Developers
+## Development
 
-### Customization for Other Projects
-1. Copy the `data/` folder 
-2. Edit `input-urls.csv` and `input-schema.json`
-3. Run scraper
+### Creating New Transform Functions
 
-### Adding New Features
-1. Edit modules in `src/lib/`
-2. Update validation in `validator.js`
-3. Test with `test-*` commands
+1. Create a new file in `src/transforms/myTransform.js`:
+```javascript
+/**
+ * Description of what this transform does
+ * 
+ * Usage: "myTransform(param1,param2)"
+ * Input: "example input" → Output: "expected output"
+ */
+export default function myTransform(value, param1, param2) {
+  if (typeof value !== 'string') return value;
+  
+  // Your transformation logic here
+  return transformedValue;
+}
+```
+
+2. Use in schema: `"transform": "myTransform(arg1,arg2)"`
+
+### Customization for Different Projects
+1. Copy the `data/` folder to your project
+2. Edit `input-urls.csv` with your target URLs
+3. Configure `input-schema.json` for your data structure
+4. Run the scraper
+
+### Architecture Overview
+- **index.js** - Main orchestration and CLI
+- **scraper.js** - Browser automation with Playwright
+- **csvHandler.js** - CSV file reading/writing operations
+- **validator.js** - Schema validation and data validation
+- **transforms/** - Pluggable data transformation functions
 
 ## License
 
