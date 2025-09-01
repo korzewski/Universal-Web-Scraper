@@ -1,0 +1,73 @@
+{
+  "version": "1.0",
+  "description": "Universal web scraper schema for extracting various types of data",
+  "config": {
+    "scraper": {
+      "delay": 1000,
+      "timeout": 30000,
+      "maxRetries": 3,
+      "retryDelay": 2000,
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+    },
+    "browser": {
+      "headless": true,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "blockResources": ["image", "font", "media"]
+    },
+    "output": {
+      "filename": "scraped-data",
+      "format": "csv",
+      "includeTimestamp": true,
+      "createBackup": true
+    }
+  },
+  "pageSettings": {
+    "waitForSelector": "h1",
+    "waitTimeout": 10000,
+    "screenshot": false,
+    "removeScripts": true
+  },
+  "columns": [
+    {
+      "name": "url",
+      "selector": null,
+      "attribute": "url",
+      "description": "Source URL of the page"
+    },
+    {
+      "name": "title",
+      "selector": "h1, .page-title, .product-title, .article-title",
+      "attribute": "text",
+      "required": true,
+      "description": "Main page title"
+    },
+    {
+      "name": "description",
+      "selector": ".description, .product-description, .summary, p:first-of-type",
+      "attribute": "text",
+      "description": "Page description or summary"
+    },
+    {
+      "name": "price",
+      "selector": ".price, .cost, .amount, [data-price]",
+      "attribute": "text",
+      "transform": "trim",
+      "description": "Price information (if applicable)"
+    },
+    {
+      "name": "image_url",
+      "selector": ".hero-image img, .product-image img, .featured-image img, img:first-of-type",
+      "attribute": "src",
+      "description": "Main image URL"
+    },
+    {
+      "name": "meta_description",
+      "selector": "meta[name='description']",
+      "attribute": "content",
+      "description": "SEO meta description"
+    }
+  ]
+}

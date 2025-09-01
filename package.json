@@ -1,0 +1,27 @@
+{
+  "name": "universal-web-scraper",
+  "version": "1.0.0",
+  "description": "Universal web scraper with configurable schemas for extracting data from websites",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "lint": "eslint .",
+    "test": "node --test"
+  },
+  "keywords": ["scraper", "web-scraping", "data-extraction", "universal", "configurable", "csv"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12",
+    "csv-parser": "^3.0.0",
+    "csv-writer": "^1.6.0",
+    "dotenv": "^16.4.5",
+    "joi": "^17.12.1",
+    "playwright": "^1.41.2"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  }
+}
