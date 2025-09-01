@@ -21,7 +21,7 @@ export class Validator {
       required: Joi.boolean().default(false),
       description: Joi.string().optional(),
       default: Joi.string().optional(),
-      transform: Joi.string().valid('trim', 'lowercase', 'uppercase', 'number', 'slugFromUrl').optional()
+      transform: Joi.string().pattern(/^(trim|lowercase|uppercase|number|slugFromUrl|custom:\w+\([^)]*\))(\s*,\s*(trim|lowercase|uppercase|number|slugFromUrl|custom:\w+\([^)]*\)))*$/).optional()
     });
 
     const configSchema = Joi.object({
