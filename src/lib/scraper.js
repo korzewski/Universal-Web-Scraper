@@ -17,7 +17,7 @@ export class Scraper {
     
     this.browser = null;
     this.context = null;
-    this.customTransforms = new Map();
+    this.transformCache = new Map();
   }
 
   async initialize() {
@@ -245,149 +245,52 @@ export class Scraper {
     }
 
     let result = value;
-    const transforms = this.parseTransformChain(transform);
+    const transforms = transform.split(',').map(t => t.trim());
 
-    for (const transformObj of transforms) {
-      if (transformObj.type === 'builtin') {
-        result = this.applyBuiltinTransform(result, transformObj.name);
-      } else if (transformObj.type === 'custom') {
-        result = await this.applyCustomTransform(result, transformObj.name, transformObj.args);
-      }
+    for (const t of transforms) {
+      const { name, args } = this.parseTransform(t);
+      const transformFn = await this.loadTransform(name);
+      result = transformFn(result, ...args);
     }
 
     return result;
   }
 
-  parseTransformChain(chain) {
-    console.log(`🔍 parseTransformChain: input="${chain}"`);
-    const transforms = [];
-    let current = '';
-    let inCustomTransform = false;
-    let parenCount = 0;
+  parseTransform(transformStr) {
+    // Parse "cleanHTML(h1,p;.skip)" into { name: "cleanHTML", args: ["h1,p", ".skip"] }
+    const match = transformStr.match(/^(\w+)(?:\((.*)\))?$/);
+    if (!match) return { name: transformStr, args: [] };
     
-    for (let i = 0; i < chain.length; i++) {
-      const char = chain[i];
-      
-      if (current.trim().startsWith('custom:') && char === '(') {
-        inCustomTransform = true;
-        parenCount++;
-      } else if (inCustomTransform && char === '(') {
-        parenCount++;
-      } else if (inCustomTransform && char === ')') {
-        parenCount--;
-        if (parenCount === 0) {
-          inCustomTransform = false;
-        }
-      }
-      
-      if (char === ',' && !inCustomTransform) {
-        // End of current transform
-        const trimmed = current.trim();
-        if (trimmed) {
-          if (trimmed.startsWith('custom:')) {
-            const parsed = this.parseCustomTransform(trimmed);
-            console.log(`🔍 parseTransformChain: parsed custom transform:`, parsed);
-            transforms.push(parsed);
-          } else {
-            transforms.push({ type: 'builtin', name: trimmed });
-          }
-        }
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    
-    // Process the last transform
-    const trimmed = current.trim();
-    if (trimmed) {
-      if (trimmed.startsWith('custom:')) {
-        const parsed = this.parseCustomTransform(trimmed);
-        console.log(`🔍 parseTransformChain: parsed custom transform:`, parsed);
-        transforms.push(parsed);
-      } else {
-        transforms.push({ type: 'builtin', name: trimmed });
-      }
-    }
-    
-    console.log(`🔍 parseTransformChain: result:`, transforms);
-    return transforms;
-  }
-
-  parseCustomTransform(customStr) {
-    // Parse "custom:cleanHTML(h1,p;.skip-ads)"
-    console.log(`🔍 parseCustomTransform: input="${customStr}"`);
-    const match = customStr.match(/^custom:(\w+)\((.*)\)$/);
-    if (!match) {
-      throw new Error(`Invalid custom transform syntax: ${customStr}`);
-    }
-
     const [, name, argsStr] = match;
-    console.log(`🔍 parseCustomTransform: name="${name}", argsStr="${argsStr}"`);
     const args = argsStr ? argsStr.split(';').map(arg => arg.trim()) : [];
-    console.log(`🔍 parseCustomTransform: parsed args:`, args);
-    
-    return { type: 'custom', name, args };
+    return { name, args };
   }
 
-  applyBuiltinTransform(value, transform) {
-    switch (transform) {
-      case 'trim':
-        return value.trim();
-      case 'lowercase':
-        return value.toLowerCase();
-      case 'uppercase':
-        return value.toUpperCase();
-      case 'number':
-        const num = parseFloat(value.replace(/[^0-9.-]/g, ''));
-        return isNaN(num) ? value : num;
-      case 'slugFromUrl':
-        try {
-          const url = new URL(value);
-          return url.pathname.replace(/^\//, '').replace(/\/$/, '');
-        } catch {
-          return value.replace(/^\//, '').replace(/\/$/, '') || value;
-        }
-      default:
-        return value;
-    }
-  }
 
-  async applyCustomTransform(value, name, args) {
-    try {
-      console.log(`🔍 applyCustomTransform: name="${name}", args:`, args, `value length=${value?.length}`);
-      const transformFn = await this.loadCustomTransform(name);
-      const result = transformFn(value, ...args);
-      console.log(`🔍 applyCustomTransform: result length=${result?.length}`);
-      return result;
-    } catch (error) {
-      this.log(`⚠️  Custom transform ${name} failed: ${error.message}`);
-      return value;
-    }
-  }
 
-  async loadCustomTransform(name) {
-    if (this.customTransforms.has(name)) {
-      return this.customTransforms.get(name);
+
+  async loadTransform(name) {
+    if (this.transformCache.has(name)) {
+      return this.transformCache.get(name);
     }
 
     try {
       const path = await import('path');
       const { fileURLToPath } = await import('url');
       const __dirname = path.dirname(fileURLToPath(import.meta.url));
-      const modulePath = path.resolve(__dirname, '../../data/customTransformations', `${name}.js`);
+      const modulePath = path.resolve(__dirname, '../transforms', `${name}.js`);
       
       const module = await import(`file://${modulePath}`);
       const transformFn = module.default;
       
       if (typeof transformFn !== 'function') {
-        throw new Error(`Custom transform ${name} must export a default function`);
+        throw new Error(`Transform ${name} must export a default function`);
       }
 
-      this.customTransforms.set(name, transformFn);
+      this.transformCache.set(name, transformFn);
       return transformFn;
     } catch (error) {
-      throw new Error(`Failed to load custom transform ${name}: ${error.message}`);
+      throw new Error(`Transform ${name} not found: ${error.message}`);
     }
   }
 

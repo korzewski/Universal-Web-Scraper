@@ -3,10 +3,11 @@ import * as cheerio from 'cheerio';
 /**
  * Clean HTML transformation - extracts only specified HTML tags and removes unwanted elements
  * 
- * @param {string} htmlContent - The HTML content to clean
- * @param {string} allowedTags - Comma-separated list of allowed tags (default: h1,h2,h3,h4,h5,h6,p)
- * @param {string} skipSelectors - Comma-separated list of CSS selectors to skip/remove (default: empty)
- * @returns {string} - Cleaned HTML content
+ * Usage: "cleanHTML(h1,p)" or "cleanHTML(h1,h2,p;.skip-ads,.header)"
+ * First arg: allowed tags (comma-separated, default: h1,h2,h3,h4,h5,h6,p)  
+ * Second arg: skip selectors (comma-separated, optional)
+ * Input: "<div><h1>Title</h1><p>Text</p><script>bad</script></div>"
+ * Output: "<h1>Title</h1>\n<p>Text</p>"
  */
 export default function cleanHTML(htmlContent, allowedTags = 'h1,h2,h3,h4,h5,h6,p', skipSelectors = '') {
   // Handle empty string arguments by using defaults
