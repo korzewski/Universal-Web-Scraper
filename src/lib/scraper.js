@@ -166,7 +166,8 @@ export class Scraper {
 
   async extractData($, column, url) {
     if (column.attribute === 'url') {
-      return url;
+      const value = column.transform ? this.transformValue(url, column.transform) : url;
+      return value;
     }
 
     if (!column.selector || column.selector === null) {
@@ -252,6 +253,13 @@ export class Scraper {
       case 'number':
         const num = parseFloat(value.replace(/[^0-9.-]/g, ''));
         return isNaN(num) ? value : num;
+      case 'slugFromUrl':
+        try {
+          const url = new URL(value);
+          return url.pathname.replace(/^\//, '').replace(/\/$/, '');
+        } catch {
+          return value.replace(/^\//, '').replace(/\/$/, '') || value;
+        }
       default:
         return value;
     }
