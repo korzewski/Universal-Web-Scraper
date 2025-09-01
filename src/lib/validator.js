@@ -46,7 +46,8 @@ export class Validator {
         filename: Joi.string().default('scraped-data'),
         format: Joi.string().valid('csv').default('csv'),
         includeTimestamp: Joi.boolean().default(true),
-        createBackup: Joi.boolean().default(true)
+        createBackup: Joi.boolean().default(true),
+        includeInvalidInOutput: Joi.boolean().default(true)
       }).optional()
     }).optional();
 

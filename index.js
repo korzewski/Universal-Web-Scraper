@@ -147,6 +147,7 @@ class UniversalScraper {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const baseFilename = outputConfig.filename || 'scraped-data';
     const includeTimestamp = outputConfig.includeTimestamp !== false;
+    const includeInvalidInOutput = outputConfig.includeInvalidInOutput !== false;
     
     const filename = includeTimestamp ? 
       `output-${baseFilename}_${timestamp}.csv` : 
@@ -158,7 +159,9 @@ class UniversalScraper {
       this.csvHandler.createBackup(outputPath);
     }
 
-    await this.csvHandler.writeResults(results, outputPath, this.schema.columns);
+    // Filter out invalid records from main output if configured
+    const outputData = includeInvalidInOutput ? results : validation.valid;
+    await this.csvHandler.writeResults(outputData, outputPath, this.schema.columns);
     this.csvHandler.logStats(results);
 
     if (validation.invalid.length > 0) {
